@@ -108,6 +108,7 @@ uint32_t ColorFromPaletteWLED(const CRGBPalette16& pal, unsigned index, uint8_t 
     blue1  = (blue1 * f1 + (unsigned)entry->b * f2) >> 8;
   }
   if (brightness < 255) { // note: zero checking could be done to return black but that is hardly ever used so it is omitted
+    // actually color_fade(c1, brightness)
     uint32_t scale = brightness + 1; // adjust for rounding (bitshift)
     red1   = (red1 * scale) >> 8; // note: using color_fade() is 30% slower
     green1 = (green1 * scale) >> 8;
