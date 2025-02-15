@@ -768,7 +768,7 @@ bool IRAM_ATTR_YN Segment::isPixelClipped(int i) const {
     //if (!invert &&  iInside) return _modeBlend;
     //if ( invert && !iInside) return _modeBlend;
     //return !_modeBlend;
-    return !iInside ^ invert ^ _modeBlend; // thanks @willmmiles (https://github.com/Aircoookie/WLED/pull/3877#discussion_r1554633876)
+    return !iInside ^ invert ^ _modeBlend; // thanks @willmmiles (https://github.com/wled-dev/WLED/pull/3877#discussion_r1554633876)
   }
 #endif
   return false;
