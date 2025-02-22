@@ -21,12 +21,15 @@ jobs:
           merge-multiple: true
       - name: Show Files
         run: ls -la
+      - uses: actions/checkout@v2
+        with:      
+         fetch-depth: 0
       - name: "✏️ Generate release changelog"
         id: changelog
         uses: janheinrichmerker/action-github-changelog-generator@v2.3
         with:
           token: ${{ secrets.GITHUB_TOKEN }} 
-          sinceTag: v0.15.0
+          onlyLastTag: true
       - name: Update Nightly Release
         uses: andelf/nightly-release@main
         env:
@@ -42,6 +45,6 @@ jobs:
       - name: Repository Dispatch
         uses: peter-evans/repository-dispatch@v3
         with:
-          repository: wled-dev/WLED-WebInstaller
+          repository: wled/WLED-WebInstaller
           event-type: release-nightly
           token: ${{ secrets.PAT_PUBLIC }}
