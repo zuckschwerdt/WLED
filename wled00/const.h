@@ -37,7 +37,7 @@
 #endif
 
 #ifndef WLED_MAX_USERMODS
-  #ifdef ESP8266
+  #if defined(ESP8266) || defined(CONFIG_IDF_TARGET_ESP32S2)
     #define WLED_MAX_USERMODS 4
   #else
     #define WLED_MAX_USERMODS 6
@@ -70,8 +70,8 @@
       #define WLED_MIN_VIRTUAL_BUSSES 6       // no longer used for bus creation but used to distinguish S2/S3 in UI
     #else
       // the last digital bus (I2S0) will prevent Audioreactive usermod from functioning
-      #define WLED_MAX_BUSSES 20              // will allow 17 digital & 3 analog RGB
-      #define WLED_MAX_DIGITAL_CHANNELS 17
+      #define WLED_MAX_BUSSES 19              // will allow 16 digital & 3 analog RGB
+      #define WLED_MAX_DIGITAL_CHANNELS 16    // x1/x8 I2S1 + x8 RMT
       //#define WLED_MAX_ANALOG_CHANNELS 16
       #define WLED_MIN_VIRTUAL_BUSSES 6       // no longer used for bus creation but used to distinguish S2/S3 in UI
     #endif
@@ -119,7 +119,7 @@
   #endif
 #endif
 
-#ifdef ESP8266
+#if defined(ESP8266) || defined(CONFIG_IDF_TARGET_ESP32S2)
 #define WLED_MAX_COLOR_ORDER_MAPPINGS 5
 #else
 #define WLED_MAX_COLOR_ORDER_MAPPINGS 10
@@ -129,7 +129,7 @@
   #undef WLED_MAX_LEDMAPS
 #endif
 #ifndef WLED_MAX_LEDMAPS
-  #ifdef ESP8266
+  #if defined(ESP8266) || defined(CONFIG_IDF_TARGET_ESP32S2)
     #define WLED_MAX_LEDMAPS 10
   #else
     #define WLED_MAX_LEDMAPS 16
@@ -209,6 +209,7 @@
 #define USERMOD_ID_PIXELS_DICE_TRAY      54     //Usermod "pixels_dice_tray.h"
 #define USERMOD_ID_DEEP_SLEEP            55     //Usermod "usermod_deep_sleep.h"
 #define USERMOD_ID_RF433                 56     //Usermod "usermod_v2_RF433.h"
+#define USERMOD_ID_BRIGHTNESS_FOLLOW_SUN 57     //Usermod "usermod_v2_brightness_follow_sun.h"
 
 //Access point behavior
 #define AP_BEHAVIOR_BOOT_NO_CONN          0     //Open AP when no connection after boot
@@ -480,6 +481,8 @@
 #ifndef MAX_LEDS
 #ifdef ESP8266
 #define MAX_LEDS 1664 //can't rely on memory limit to limit this to 1600 LEDs
+#elif defined(CONFIG_IDF_TARGET_ESP32S2)
+#define MAX_LEDS 2048 //due to memory constraints
 #else
 #define MAX_LEDS 8192
 #endif
@@ -489,7 +492,9 @@
   #ifdef ESP8266
     #define MAX_LED_MEMORY 4000
   #else
-    #if defined(ARDUINO_ARCH_ESP32S2) || defined(ARDUINO_ARCH_ESP32C3)
+    #if defined(ARDUINO_ARCH_ESP32S2)
+      #define MAX_LED_MEMORY 16000
+    #elif defined(ARDUINO_ARCH_ESP32C3)
       #define MAX_LED_MEMORY 32000
     #else
       #define MAX_LED_MEMORY 64000
