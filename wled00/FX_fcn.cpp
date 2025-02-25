@@ -694,8 +694,8 @@ static void setPinwheelParameters(int i, int vW, int vH, int& startx, int& start
   for (int k = 0; k < 2; k++) // angular steps for two consecutive rays
   {
     int angle = (i + k) * baseAngle + rotate;
-    cosVal[k] = (cos16(angle) * Fixed_Scale) >> 15; // step per pixel in fixed point, cos16 output is -0x7FFF to +0x7FFF
-    sinVal[k] = (sin16(angle) * Fixed_Scale) >> 15; // using explicit bit shifts as dividing negative numbers is not equivalent (rounding error is acceptable)
+    cosVal[k] = (cos16_t(angle) * Fixed_Scale) >> 15; // step per pixel in fixed point, cos16 output is -0x7FFF to +0x7FFF
+    sinVal[k] = (sin16_t(angle) * Fixed_Scale) >> 15; // using explicit bit shifts as dividing negative numbers is not equivalent (rounding error is acceptable)
   }
   startx = (vW * Fixed_Scale) / 2; // + cosVal[0] / 4; // starting position = center + 1/4 pixel (in fixed point)
   starty = (vH * Fixed_Scale) / 2; // + sinVal[0] / 4; 
