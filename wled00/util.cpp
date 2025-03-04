@@ -624,84 +624,63 @@ int32_t hw_random(int32_t lowerlimit, int32_t upperlimit) {
  * Note: optimized for speed and to mimic fastled inoise functions, not for accuracy or best randomness
  */
 
-// hash based gradient (speed is key)
-static inline __attribute__((always_inline)) uint32_t perlinHash(uint32_t x) {
-    //x ^= x >> 15; //11?
-    //x *= 0x85ebca6b;
-    //x ^= x >> 7;
-
-    //x *= 0xc2b2ae35;
-    //x ^= x >> 17;
-     //return x;
-
-     //version from above, does not look too good
-  //x = ((x >> 16) ^ x) * 0x45d9f3b;
-  //x = ((x >> 16) ^ x) * 0x45d9f3b;
-  //return (x >> 16) ^ x;
-
-//found this online at https://github.com/skeeto/hash-prospector
-// allegedly even better than the above murmur hash
-     x ^= x >> 16;
-    x *= 0x7feb352d;
-    x ^= x >> 15;
-    x *= 0x846ca68b;
-    x ^= x >> 16;
-    return x;
-
-   
-}
-
-//int8_t slopes[8] = {-4,-3,-2,-1,1,2,3,4};
-static inline __attribute__((always_inline)) int32_t cornergradient(uint32_t h) {
-  int grad = (h & 0x0F) - 8; // +7 to -8
- // int grad = slopes[h & 0x7]; // +1 or -1 (better mimics fastled but much slower, can be optimized by passing an array pointer or making the array global
-  //int grad = (h & 0x07) - 4; // +3 to -4
-  //int grad = (h & 0x03) - 2; // +1 to -2
-  //int grad = (h & 0x07)  * (h & 0x10 ? -1 : 1); // symmetrical, much (!) slower
-  //return slopes[h & 0x7]; // lookup table is also very slow...
-  return grad;
-}
-
 // Gradient functions for 1D, 2D and 3D Perlin noise  note: forcing inline produces smaller code and makes it 3x faster!
 static inline __attribute__((always_inline)) int32_t gradient1D(uint32_t x0, int32_t dx) {
-  int32_t grad = cornergradient(perlinHash(x0));
-  return (grad * dx) >> 1;
+  //uint32_t hash ^= hash >> 16;
+  //hash *= 0x7feb352d;
+  //hash ^= hash >> 15;
+  //hash *= 0x846ca68b;
+  //hash ^= hash >> 16;
+  uint32_t hash = (x0 * 73856093);
+  hash ^= hash >> 15;
+  hash *= 0x92C3412B;
+  hash ^= hash >> 13;
+  int32_t gradx = (hash & 0xFF) - 128; // +127 to -128
+  return (gradx * dx) >> 7;
 }
 
 static inline __attribute__((always_inline)) int32_t gradient2D(uint32_t x0, int32_t dx, uint32_t y0, int32_t dy) {
-  uint32_t hashx = perlinHash(x0);
-  //uint32_t hashy = perlinHash(hashx ^ y0);
-  uint32_t hashy = perlinHash(y0 + 1013904223UL);
-  int32_t gradx = cornergradient(hashx);
-  int32_t grady = cornergradient(hashy);
-  return (gradx * dx + grady * dy) >> 2;
+  //uint32_t hash = perlinHash(x0 ^ perlinHash(y0));
+  // much faster and still decent entropy
+  uint32_t hash = (x0 * 73856093) ^ (y0 * 19349663);
+  hash ^= hash >> 15;
+  hash *= 0x92C3412B;
+  hash ^= hash >> 13;
+  // calculate gradients for each corner from hash value
+   int32_t gradx = (hash & 0xFF) - 128; // +127 to -128
+  int32_t grady = ((hash>>7) & 0xFF) - 128;
+  return (gradx * dx + grady * dy) >> 9;
 }
 
 static inline __attribute__((always_inline)) int32_t gradient3D(uint32_t x0, int32_t dx, uint32_t y0, int32_t dy, uint32_t z0, int32_t dz) {
-  //uint32_t hashx = perlinHash(x0);
-  //uint32_t hashy = perlinHash(hashx ^ y0);
-  //uint32_t hashz = perlinHash(hashy ^ z0);
+  //uint32_t hash = perlinHash(x0 ^ perlinHash(y0 ^ perlinHash(z0)));
   
-  uint32_t hashx = perlinHash(x0);
-  uint32_t hashy = perlinHash(y0 + 1013904223UL);
-  uint32_t hashz = perlinHash(z0 + 1664525UL);
+  // fast and good entropy hash from corner coordinates
+  uint32_t hash = x0 * 0x68E31DA4 + y0 * 0xB5297A4D + z0 * 0x1B56C4E9;
+  hash ^= hash >> 8;
+  hash += hash << 3;
+  hash ^= hash >> 16;
+  // calculate gradients for each corner from hash value
+  //int32_t gradx = (hash & 0x07) - 4; // +3 to -4
+  //int32_t grady = ((hash>>3) & 0x07) - 4;
+  //int32_t gradz = ((hash>>6) & 0x07) - 4;
 
-  int32_t gradx = cornergradient(hashx);
-  int32_t grady = cornergradient(hashy);
-  int32_t gradz = cornergradient(hashz);
-  return (gradx * dx + grady * dy + gradz * dz) >> 4;
+  int32_t gradx = (hash & 0xFF) - 128; // +127 to -128
+  int32_t grady = ((hash>>7) & 0xFF) - 128;
+  int32_t gradz = ((hash>>14) & 0xFF) - 128;
+  return (gradx * dx + grady * dy + gradz * dz) >> 10;
 }
 
 // fast cubic smoothstep: t*(3 - 2t²), optimized for fixed point
 static uint32_t smoothstep(const uint32_t t) {
   uint32_t t_squared = (t * t) >> 16;
   uint32_t factor = (3 << 16) - ((t << 1));
-  return (t_squared * factor) >> 17; // scale for best resolution without overflow
+  return (t_squared * factor) >> 16;
 }
 
 // simple linear interpolation for fixed-point values, scaled for perlin noise use
 static inline int32_t lerpPerlin(int32_t a, int32_t b, int32_t t) {
-    return a + (((b - a) * t) >> 15);
+    return a + (((b - a) * t) >> 16);
 }
 
 // 1D Perlin noise function that returns a value in range of approximately -32768 to +32768
@@ -710,13 +689,13 @@ int32_t perlin1D_raw(uint32_t x) {
   int32_t x0 = x >> 16;
   int32_t x1 = x0 + 1;
   int32_t dx0 = x & 0xFFFF;
-  int32_t dx1 = dx0 - 0xFFFF;
+  int32_t dx1 = dx0 - 0x10000;
   // gradient values for the two corners
   int32_t g0 = gradient1D(x0, dx0);
   int32_t g1 = gradient1D(x1, dx1);
   // interpolate and smooth function
-  int32_t t = smoothstep(dx0);
-  int32_t noise = lerpPerlin(g0, g1, t);
+  int32_t tx = smoothstep(dx0);
+  int32_t noise = lerpPerlin(g0, g1, tx);
   return noise;
 }
 
@@ -728,8 +707,8 @@ int32_t perlin2D_raw(uint32_t x, uint32_t y) {
   int32_t y1 = y0 + 1;
   int32_t dx0 = x & 0xFFFF;
   int32_t dy0 = y & 0xFFFF;
-  int32_t dx1 = dx0 - 0xFFFF;
-  int32_t dy1 = dy0 - 0xFFFF;
+  int32_t dx1 = dx0 - 0x10000;
+  int32_t dy1 = dy0 - 0x10000;
 
   int32_t g00 = gradient2D(x0, dx0, y0, dy0);
   int32_t g10 = gradient2D(x1, dx1, y0, dy0);
@@ -758,9 +737,9 @@ int32_t perlin3D_raw(uint32_t x, uint32_t y, uint32_t z) {
   int32_t dx0 = x & 0xFFFF;
   int32_t dy0 = y & 0xFFFF;
   int32_t dz0 = z & 0xFFFF;
-  int32_t dx1 = dx0 - 0xFFFF;
-  int32_t dy1 = dy0 - 0xFFFF;
-  int32_t dz1 = dz0 - 0xFFFF;
+  int32_t dx1 = dx0 - 0x10000;
+  int32_t dy1 = dy0 - 0x10000;
+  int32_t dz1 = dz0 - 0x10000;
 
   int32_t g000 = gradient3D(x0, dx0, y0, dy0, z0, dz0);
   int32_t g001 = gradient3D(x0, dx0, y0, dy0, z1, dz1);
@@ -807,5 +786,5 @@ uint16_t perlin16(uint32_t x, uint32_t y) {
 }
 
 uint16_t perlin16(uint32_t x, uint32_t y, uint32_t z) {
-  return ((perlin3D_raw(x, y, z) * 70) >> 6) + 0x7FFF;
+  return (perlin3D_raw(x, y, z)>>1) + 0x7FFF;
 }
