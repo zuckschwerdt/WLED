@@ -653,34 +653,27 @@ static inline __attribute__((always_inline)) int32_t gradient2D(uint32_t x0, int
 }
 
 static inline __attribute__((always_inline)) int32_t gradient3D(uint32_t x0, int32_t dx, uint32_t y0, int32_t dy, uint32_t z0, int32_t dz) {
-  //uint32_t hash = perlinHash(x0 ^ perlinHash(y0 ^ perlinHash(z0)));
-  
-  // fast and good entropy hash from corner coordinates
-  uint32_t hash = x0 * 0x68E31DA4 + y0 * 0xB5297A4D + z0 * 0x1B56C4E9;
-  hash ^= hash >> 8;
-  hash += hash << 3;
-  hash ^= hash >> 16;
-  // calculate gradients for each corner from hash value
-  //int32_t gradx = (hash & 0x07) - 4; // +3 to -4
-  //int32_t grady = ((hash>>3) & 0x07) - 4;
-  //int32_t gradz = ((hash>>6) & 0x07) - 4;
+  // fast and good entropy hash from corner coordinates 
+  uint32_t h = (x0 * 0x68E31DA4) ^ (y0 * 0xB5297A4D) ^ (z0 * 0x1B56C4E9);
+  h ^= h >> 15;
+  h = h * 0x92C3412B + (h >> 13);
 
-  int32_t gradx = (hash & 0xFF) - 128; // +127 to -128
-  int32_t grady = ((hash>>7) & 0xFF) - 128;
-  int32_t gradz = ((hash>>14) & 0xFF) - 128;
-  return (gradx * dx + grady * dy + gradz * dz) >> 10;
+  int32_t gradx = (h & 0xFF) - 128; // +127 to -128
+  int32_t grady = ((h>>7) & 0xFF) - 128;
+  int32_t gradz = ((h>>14) & 0xFF) - 128;
+  return (gradx * dx + grady * dy + gradz * dz) >> 8; // 25bit >> 8bit -> result is signed 17bit max
 }
 
-// fast cubic smoothstep: t*(3 - 2t²), optimized for fixed point
+// fast cubic smoothstep: t*(3 - 2t²), optimized for fixed point, scaled to avoid overflows
 static uint32_t smoothstep(const uint32_t t) {
   uint32_t t_squared = (t * t) >> 16;
   uint32_t factor = (3 << 16) - ((t << 1));
-  return (t_squared * factor) >> 16;
+  return (t_squared * factor) >> 19;
 }
 
 // simple linear interpolation for fixed-point values, scaled for perlin noise use
 static inline int32_t lerpPerlin(int32_t a, int32_t b, int32_t t) {
-    return a + (((b - a) * t) >> 16);
+    return a + (((b - a) * t) >> 13);
 }
 
 // 1D Perlin noise function that returns a value in range of approximately -32768 to +32768
@@ -786,5 +779,5 @@ uint16_t perlin16(uint32_t x, uint32_t y) {
 }
 
 uint16_t perlin16(uint32_t x, uint32_t y, uint32_t z) {
-  return (perlin3D_raw(x, y, z)>>1) + 0x7FFF;
+  return perlin3D_raw(x, y, z) + 0x7FFF; // scale to signed 16bit range and offset
 }

@@ -345,18 +345,18 @@ void WLED::setup()
   uint32_t end;
   uint32_t time;
   uint8_t offset = hw_random();
-/*
-  for(int i = 0; i < 0xFFFFF; i+=800) {
+
+  for(int i = 0; i < 0xFFFFF; i+=500) {
     Serial.print(inoise16(i, offset, (offset >> 3)));  Serial.print(","); //x
     Serial.print(inoise16(offset, i, (offset >> 3)));  Serial.print(","); //y
     Serial.print(inoise16(offset, (offset >> 3), i));  Serial.print(","); //z
     Serial.print(perlin16(i, offset, (offset >> 3)));  Serial.print(","); //x
     Serial.print(perlin16(offset, i, (offset >> 3)));  Serial.print(","); //y
     Serial.print(perlin16(offset, (offset >> 3), i));  Serial.print(","); //z
-    Serial.print(inoise16(i, offset+i/4, i*2 + (offset >> 3)));  Serial.print(","); //mixed mode
-    Serial.print(perlin16(i, offset+i/4, i*2 + (offset >> 3))); Serial.print(",");
+    Serial.print(inoise16(i, offset+i/2, i + (offset >> 3)));  Serial.print(","); //mixed mode
+    Serial.print(perlin16(i, offset+i/2, i + (offset >> 3))); Serial.print(",");
     Serial.println(perlin3D_raw(i, offset+i/4, i*2 + (offset >> 3))); //raw
-  }*/
+  }
 
 /*
   for(int i = 0; i <  0x2FFFF; i+=100) {
@@ -419,7 +419,7 @@ void WLED::setup()
   minval=0xFFFFF;
   maxval=0;
     start = micros();
-  for(int i = 0; i <  0xFFFFFFF; i+=5) {
+  for(int i = 0; i <  0xFFFFFFF; i+=50) {
     uint32_t pos = i + offset;
     //int32_t noiseval = perlin16(hw_random());
     int32_t noiseval = perlin1D_raw(hw_random());
@@ -433,7 +433,7 @@ Serial.print(" perlin1D raw min: "); Serial.print(minval); Serial.print(" max: "
   minval=0xFFFFF;
   maxval=0;
     start = micros();
-  for(int i = 0; i <  0xFFFFFFF; i+=5) {
+  for(int i = 0; i <  0xFFFFFFF; i+=50) {
     uint32_t pos = i + offset;
     //int32_t noiseval = perlin16( hw_random(),  hw_random());
     int32_t noiseval = perlin2D_raw( hw_random(),  hw_random());
@@ -448,7 +448,7 @@ Serial.print(" perlin1D raw min: "); Serial.print(minval); Serial.print(" max: "
 
   minval=0xFFFFF;
   maxval=0;
-  for(int i = 0; i <  0xFFFFFFF; i+=5) {
+  for(int i = 0; i <  0xFFFFFFF; i+=50) {
     uint32_t pos = i + offset;
     //int32_t noiseval = perlin3D_raw(pos, pos+46845, pos+654684);
     //int32_t noiseval = perlin3D_raw(hw_random(), hw_random(), hw_random());
@@ -463,7 +463,7 @@ Serial.print(" perlin1D raw min: "); Serial.print(minval); Serial.print(" max: "
 
   minval=0xFFFFF;
   maxval=0;
-  for(int i = 0; i <  0xFFFFFFF; i+=5) {
+  for(int i = 0; i <  0xFFFFFFF; i+=50) {
     uint32_t pos = i + offset;
     //int32_t noiseval = perlin3D_raw(pos, pos+46845, pos+654684);
     int32_t noiseval = perlin3D_raw(hw_random(), hw_random(), hw_random());
