@@ -1138,12 +1138,9 @@ void Segment::refreshLightCapabilities() {
   }
 
   for (unsigned b = 0; b < BusManager::getNumBusses(); b++) {
-    Bus *bus = BusManager::getBus(b);
-    if (bus == nullptr || bus->getLength()==0) break;
-    if (!bus->isOk()) continue;
-    if (bus->getStart() >= segStopIdx) continue;
-    if (bus->getStart() + bus->getLength() <= segStartIdx) continue;
-
+    const Bus *bus = BusManager::getBus(b);
+    if (!bus || !bus->isOk()) break;
+    if (bus->getStart() >= segStopIdx || bus->getStart() + bus->getLength() <= segStartIdx) continue;
     if (bus->hasRGB() || (strip.cctFromRgb && bus->hasCCT())) capabilities |= SEG_CAPABILITY_RGB;
     if (!strip.cctFromRgb && bus->hasCCT())                   capabilities |= SEG_CAPABILITY_CCT;
     if (strip.correctWB && (bus->hasRGB() || bus->hasCCT()))  capabilities |= SEG_CAPABILITY_CCT; //white balance correction (CCT slider)
@@ -1478,8 +1475,7 @@ void WS2812FX::finalizeInit() {
   _length = 0;
   for (int i=0; i<BusManager::getNumBusses(); i++) {
     Bus *bus = BusManager::getBus(i);
-    if (bus == nullptr) continue;
-    if (bus->getStart() + bus->getLength() > MAX_LEDS) break;
+    if (!bus || !bus->isOk() || bus->getStart() + bus->getLength() > MAX_LEDS) break;
     //RGBW mode is enabled if at least one of the strips is RGBW
     _hasWhiteChannel |= bus->hasWhite();
     //refresh is required to remain off if at least one of the strips requires the refresh.
@@ -1489,6 +1485,7 @@ void WS2812FX::finalizeInit() {
 
     // This must be done after all buses have been created, as some kinds (parallel I2S) interact
     bus->begin();
+    bus->setBrightness(bri);
   }
   DEBUG_PRINTF_P(PSTR("Heap after buses: %d\n"), ESP.getFreeHeap());
 
@@ -1794,8 +1791,8 @@ uint16_t WS2812FX::getLengthPhysical() const {
 //not influenced by auto-white mode, also true if white slider does not affect output white channel
 bool WS2812FX::hasRGBWBus() const {
   for (size_t b = 0; b < BusManager::getNumBusses(); b++) {
-    Bus *bus = BusManager::getBus(b);
-    if (bus == nullptr || bus->getLength()==0) break;
+    const Bus *bus = BusManager::getBus(b);
+    if (!bus || !bus->isOk()) break;
     if (bus->hasRGB() && bus->hasWhite()) return true;
   }
   return false;
@@ -1804,8 +1801,8 @@ bool WS2812FX::hasRGBWBus() const {
 bool WS2812FX::hasCCTBus() const {
   if (cctFromRgb && !correctWB) return false;
   for (size_t b = 0; b < BusManager::getNumBusses(); b++) {
-    Bus *bus = BusManager::getBus(b);
-    if (bus == nullptr || bus->getLength()==0) break;
+    const Bus *bus = BusManager::getBus(b);
+    if (!bus || !bus->isOk()) break;
     if (bus->hasCCT()) return true;
   }
   return false;
@@ -1858,10 +1855,11 @@ void WS2812FX::makeAutoSegments(bool forceReset) {
     #endif
 
     for (size_t i = s; i < BusManager::getNumBusses(); i++) {
-      Bus* b = BusManager::getBus(i);
+      const Bus *bus = BusManager::getBus(i);
+      if (!bus || !bus->isOk()) break;
 
-      segStarts[s] = b->getStart();
-      segStops[s]  = segStarts[s] + b->getLength();
+      segStarts[s] = bus->getStart();
+      segStops[s]  = segStarts[s] + bus->getLength();
 
       #ifndef WLED_DISABLE_2D
       if (isMatrix && segStops[s] <= Segment::maxWidth*Segment::maxHeight) continue; // ignore buses comprising matrix
@@ -1951,7 +1949,8 @@ bool WS2812FX::checkSegmentAlignment() const {
   bool aligned = false;
   for (const segment &seg : _segments) {
     for (unsigned b = 0; b<BusManager::getNumBusses(); b++) {
-      Bus *bus = BusManager::getBus(b);
+      const Bus *bus = BusManager::getBus(b);
+      if (!bus || !bus->isOk()) break;
       if (seg.start == bus->getStart() && seg.stop == bus->getStart() + bus->getLength()) aligned = true;
     }
     if (seg.start == 0 && seg.stop == _length) aligned = true;
@@ -2048,11 +2047,16 @@ bool WS2812FX::deserializeMap(unsigned n) {
 
   if (!isFile || !requestJSONBufferLock(7)) return false;
 
-  if (!readObjectFromFile(fileName, nullptr, pDoc)) {
+  StaticJsonDocument<64> filter;
+  filter[F("width")]  = true;
+  filter[F("height")] = true;
+  if (!readObjectFromFile(fileName, nullptr, pDoc, &filter)) {
     DEBUG_PRINT(F("ERROR Invalid ledmap in ")); DEBUG_PRINTLN(fileName);
     releaseJSONBufferLock();
     return false; // if file does not load properly then exit
   }
+
+  suspend();
 
   JsonObject root = pDoc->as<JsonObject>();
   // if we are loading default ledmap (at boot) set matrix width and height from the ledmap (compatible with WLED MM ledmaps)
@@ -2066,15 +2070,51 @@ bool WS2812FX::deserializeMap(unsigned n) {
 
   if (customMappingTable) {
     DEBUG_PRINT(F("Reading LED map from ")); DEBUG_PRINTLN(fileName);
+    File f = WLED_FS.open(fileName, "r");
+    f.find("\"map\":[");
+    while (f.available()) { // f.position() < f.size() - 1
+      char number[32];
+      size_t numRead = f.readBytesUntil(',', number, sizeof(number)-1); // read a single number (may include array terminating "]" but not number separator ',')
+      number[numRead] = 0;
+      if (numRead > 0) {
+        char *end = strchr(number,']'); // we encountered end of array so stop processing if no digit found
+        bool foundDigit = (end == nullptr);
+        int i = 0;
+        if (end != nullptr) do {
+          if (number[i] >= '0' && number[i] <= '9') foundDigit = true;
+          if (foundDigit || &number[i++] == end) break;
+        } while (i < 32);
+        if (!foundDigit) break;
+        int index = atoi(number);
+        if (index < 0 || index > 16384) index = 0xFFFF;
+        customMappingTable[customMappingSize++] = index;
+        if (customMappingSize > getLengthTotal()) break;
+      } else break; // there was nothing to read, stop
+    }
+    currentLedmap = n;
+    f.close();
+
+    #ifdef WLED_DEBUG
+    DEBUG_PRINT(F("Loaded ledmap:"));
+    for (unsigned i=0; i<customMappingSize; i++) {
+      if (!(i%Segment::maxWidth)) DEBUG_PRINTLN();
+      DEBUG_PRINTF_P(PSTR("%4d,"), customMappingTable[i]);
+    }
+    DEBUG_PRINTLN();
+    #endif
+/*
     JsonArray map = root[F("map")];
     if (!map.isNull() && map.size()) {  // not an empty map
       customMappingSize = min((unsigned)map.size(), (unsigned)getLengthTotal());
       for (unsigned i=0; i<customMappingSize; i++) customMappingTable[i] = (uint16_t) (map[i]<0 ? 0xFFFFU : map[i]);
       currentLedmap = n;
     }
+*/
   } else {
     DEBUG_PRINTLN(F("ERROR LED map allocation error."));
   }
+
+  resume();
 
   releaseJSONBufferLock();
   return (customMappingSize > 0);
