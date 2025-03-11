@@ -12,4 +12,4 @@
             DISCORD_WEBHOOK_BETA_TESTERS: ${{ secrets.DISCORD_WEBHOOK_BETA_TESTERS }}
           if: github.event.pull_request.merged == true
           run: |
-            curl -H "Content-Type: application/json" -d '{"content": "Pull Request #{{ github.event.pull_request.number }} merged by {{ github.actor }}"}' $env:DISCORD_WEBHOOK_BETA_TESTERS
+            curl -H "Content-Type: application/json" -d '{"content": "Pull Request #{{ github.event.pull_request.number }} merged by {{ github.actor }}"}' $DISCORD_WEBHOOK_BETA_TESTERS
