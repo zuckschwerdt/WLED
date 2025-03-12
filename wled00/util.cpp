@@ -627,10 +627,10 @@ int32_t hw_random(int32_t lowerlimit, int32_t upperlimit) {
 
 // calculate gradient for corner from hash value
 static inline __attribute__((always_inline)) int32_t hashToGradient(uint32_t h) {
-  // using more steps yields more "detailed" perlin noise but looks less like the original fastled version (adjust PERLIN_SHIFT to compensate)
-  //return (h & 0xFF) - 128; // use PERLIN_SHIFT 7
-  //return (h & 0x0F) - 8; // use PERLIN_SHIFT 3
-  //return (h & 0x07) - 4; // use PERLIN_SHIFT 2
+  // using more steps yields more "detailed" perlin noise but looks less like the original fastled version (adjust PERLIN_SHIFT to compensate, also changes range and needs proper adustment)
+  // return (h & 0xFF) - 128; // use PERLIN_SHIFT 7
+  // return (h & 0x0F) - 8; // use PERLIN_SHIFT 3
+  // return (h & 0x07) - 4; // use PERLIN_SHIFT 2
   return (h & 0x03) - 2; // use PERLIN_SHIFT 1 -> closest to original fastled version
 }
 
@@ -658,17 +658,6 @@ static inline __attribute__((always_inline)) int32_t gradient3D(uint32_t x0, int
   h ^= h >> 15;
   h *= 0x92C3412B;
   h ^= h >> 13;
-
-/*
-  // fastled version: 25% slower but gives original "look"
-  h = h&15;
-  int32_t u = h<8?dx:dy;
-  int32_t v = h<4?dy:h==12||h==14?dx:dz;
-  if(h&1) { u = -u; }
-  if(h&2) { v = -v; }
-  return (u >> 1) + (v >> 1) + (u & 0x1);
-*/
-  // closer to actual perlin version
   return ((hashToGradient(h) * dx + hashToGradient(h>>(1+PERLIN_SHIFT)) * dy + hashToGradient(h>>(1 + 2*PERLIN_SHIFT)) * dz) * 85) >> (8 + PERLIN_SHIFT); // scale to 16bit, x*85 >> 8 = x/3
 }
 
@@ -684,7 +673,7 @@ static inline int32_t lerpPerlin(int32_t a, int32_t b, int32_t t) {
     return a + (((b - a) * t) >> 14); // match scaling with smoothstep to yield 16.16bit values
 }
 
-// 1D Perlin noise function that returns a value in range of approximately -32768 to +32768
+// 1D Perlin noise function that returns a value in range of -24691 to 24689
 int32_t perlin1D_raw(uint32_t x, bool is16bit) {
   // integer and fractional part coordinates
   int32_t x0 = x >> 16;
@@ -702,7 +691,7 @@ int32_t perlin1D_raw(uint32_t x, bool is16bit) {
   return noise;
 }
 
-// 2D Perlin noise function that returns a value in range of approximately -32768 to +32768
+// 2D Perlin noise function that returns a value in range of -20633 to 20629
 int32_t perlin2D_raw(uint32_t x, uint32_t y, bool is16bit) {
   int32_t x0 = x >> 16;
   int32_t y0 = y >> 16;
@@ -734,6 +723,7 @@ int32_t perlin2D_raw(uint32_t x, uint32_t y, bool is16bit) {
   return noise;
 }
 
+// 3D Perlin noise function that returns a value in range of -16788 to 16381
 int32_t perlin3D_raw(uint32_t x, uint32_t y, uint32_t z, bool is16bit) {
   int32_t x0 = x >> 16;
   int32_t y0 = y >> 16;
@@ -778,30 +768,28 @@ int32_t perlin3D_raw(uint32_t x, uint32_t y, uint32_t z, bool is16bit) {
   int32_t noise = lerpPerlin(ny0, ny1, tz);
   return noise;
 }
-// scaling functions for fastled replacement
 
+// scaling functions for fastled replacement
 uint16_t perlin16(uint32_t x) {
-  //return ((perlin1D_raw(x) * 1168) >> 10) + 0x7FFF; //scale to 16bit and offset (full range)
-  //return ((perlin1D_raw(x) * 895) >> 10) + 34616; //scale to 16bit and offset (fastled range) -> 8 steps
-  return ((perlin1D_raw(x) * 1159) >> 10) + 32803; //scale to 16bit and offset (fastled range) -> 8 steps
+  return ((perlin1D_raw(x) * 1159) >> 10) + 32803; //scale to 16bit and offset (fastled range: about 4838 to 60766)
 }
 
 uint16_t perlin16(uint32_t x, uint32_t y) {
- return ((perlin2D_raw(x, y) * 1537) >> 10) + 32725; //scale to 16bit and offset (empirical values with some overflow safety margin)
+ return ((perlin2D_raw(x, y) * 1537) >> 10) + 32725; //scale to 16bit and offset (fastled range: about 1748 to 63697)
 }
 
 uint16_t perlin16(uint32_t x, uint32_t y, uint32_t z) {
-  return ((perlin3D_raw(x, y, z) * 1731) >> 10) + 33147; //scale to 16bit and offset (empirical values with some overflow safety margin)
+  return ((perlin3D_raw(x, y, z) * 1731) >> 10) + 33147; //scale to 16bit and offset (fastled range: about 4766 to 60840)
 }
 
 uint8_t perlin8(uint16_t x) {
-  return (((perlin1D_raw((uint32_t)x << 8, true) * 1353) >> 10) + 32769) >> 8;
+  return (((perlin1D_raw((uint32_t)x << 8, true) * 1353) >> 10) + 32769) >> 8; //scale to 16 bit, offset, then scale to 8bit
 }
 
 uint8_t perlin8(uint16_t x, uint16_t y) {
-  return (((perlin2D_raw((uint32_t)x << 8, (uint32_t)y << 8, true) * 1620) >> 10) + 32771) >> 8;
+  return (((perlin2D_raw((uint32_t)x << 8, (uint32_t)y << 8, true) * 1620) >> 10) + 32771) >> 8; //scale to 16 bit, offset, then scale to 8bit
 }
 
 uint8_t perlin8(uint16_t x, uint16_t y, uint16_t z) {
-  return (((perlin3D_raw((uint32_t)x << 8, (uint32_t)y << 8, (uint32_t)z << 8, true) * 2015) >> 10) + 33168) >> 8; //scale to 8bit
+  return (((perlin3D_raw((uint32_t)x << 8, (uint32_t)y << 8, (uint32_t)z << 8, true) * 2015) >> 10) + 33168) >> 8; //scale to 16 bit, offset, then scale to 8bit
 }
