@@ -6221,11 +6221,21 @@ uint16_t mode_2Dplasmarotozoom() {
   const int cols = SEG_W;
   const int rows = SEG_H;
 
-  unsigned dataSize = sizeof(float);
+  unsigned dataSize = SEGMENT.length() + sizeof(float);
   if (!SEGENV.allocateData(dataSize)) return mode_static(); //allocation failed
   float *a = reinterpret_cast<float*>(SEGENV.data);
+  byte *plasma = reinterpret_cast<byte*>(SEGENV.data+sizeof(float));
 
   unsigned ms = strip.now/15;  
+
+  // plasma
+  for (int j = 0; j < rows; j++) {
+    int index = j*cols;
+    for (int i = 0; i < cols; i++) {
+      if (SEGMENT.check1) plasma[index+i] = (i * 4 ^ j * 4) + ms / 6;
+      else                plasma[index+i] = inoise8(i * 40, j * 40, ms);
+    }
+  }
 
   // rotozoom
   float f       = (sin_t(*a/2)+((128-SEGMENT.intensity)/128.0f)+1.1f)/1.5f;  // scale factor
@@ -6235,14 +6245,9 @@ uint16_t mode_2Dplasmarotozoom() {
     float u1 = i * kosinus;
     float v1 = i * sinus;
     for (int j = 0; j < rows; j++) {
-        unsigned u = abs8(u1 - j * sinus) % cols;
-        unsigned v = abs8(v1 + j * kosinus) % rows;
-        byte plasma;
-        if (SEGMENT.check1) plasma = (u * 4 ^ v * 4) + ms / 6;
-        else                plasma = perlin8(u * 40, v * 40, ms);
-        //else                plasma = inoise8(u * SEGMENT.intensity, v * SEGMENT.intensity, ms);
-        //SEGMENT.setPixelColorXY(i, j, SEGMENT.color_from_palette(plasma[v*cols+u], false, PALETTE_SOLID_WRAP, 255));
-        SEGMENT.setPixelColorXY(i, j, SEGMENT.color_from_palette(plasma, false, PALETTE_SOLID_WRAP, 255));
+        byte u = abs8(u1 - j * sinus) % cols;
+        byte v = abs8(v1 + j * kosinus) % rows;
+        SEGMENT.setPixelColorXY(i, j, SEGMENT.color_from_palette(plasma[v*cols+u], false, PALETTE_SOLID_WRAP, 255));
     }
   }
   *a -= 0.03f + float(SEGENV.speed-128)*0.0002f;  // rotation speed
