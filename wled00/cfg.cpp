@@ -704,7 +704,7 @@ void serializeConfigToFS() {
   f.close();
   releaseJSONBufferLock();
 
-  doSerializeConfig = false;
+  configNeedsWrite = false;
 }
 
 void serializeConfig(JsonObject root) {
