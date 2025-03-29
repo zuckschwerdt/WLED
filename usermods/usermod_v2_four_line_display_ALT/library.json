@@ -1,5 +1,5 @@
 {
-  "name:": "four_line_display_ALT",
+  "name": "four_line_display_ALT",
   "dependencies": {
     "U8g2": "~2.34.4",
     "Wire": ""
