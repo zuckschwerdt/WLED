@@ -46,7 +46,7 @@ private:
   // allows this library to report to the user how long until the first
   // measurement
   bool getLuminanceComplete = false;
-  uint16_t lastLDRValue = -1000;
+  uint16_t lastLDRValue = 65535;
 
   // flag set at startup
   bool disabled = false;
