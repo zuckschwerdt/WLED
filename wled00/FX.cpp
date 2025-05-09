@@ -9045,7 +9045,7 @@ uint16_t mode_particlegalaxy(void) {
         PartSys->particles[i].sat = distance << 1; // turn white towards center
       }
     }
-    if(SEGMENT.custom3 == 31) // color by age but mapped to 1024 as particles have a long life, since age is random, this gives more or less random colors but
+    if(SEGMENT.custom3 == 31) // color by age but mapped to 1024 as particles have a long life, since age is random, this gives more or less random colors
       PartSys->particles[i].hue = PartSys->particles[i].ttl >> 2;
     else if(SEGMENT.custom3 == 0) // color by distance
       PartSys->particles[i].hue = map(distance, 20, (PartSys->maxX + PartSys->maxY) >> 2, 0, 180); // color by distance to center
