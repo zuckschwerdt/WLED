@@ -8977,6 +8977,7 @@ uint16_t mode_particlegalaxy(void) {
     PartSys->sources[0].sourceFlags.perpetual = true; //source does not age
     PartSys->sources[0].maxLife = 4000; // lifetime in frames
     PartSys->sources[0].minLife = 800;
+    PartSys->sources[0].source.hue = hw_random16(); // start with random color
     PartSys->setWallHardness(255);  //bounce forever
     PartSys->setWallRoughness(200); //randomize wall bounce
   }
@@ -9017,7 +9018,6 @@ uint16_t mode_particlegalaxy(void) {
 		int32_t speedfactor;
     if (SEGMENT.check2) { // starfield mode
       PartSys->setKillOutOfBounds(true);
-      PartSys->sources[0].source.hue = hw_random16(); // start with random color
       PartSys->sources[0].var = 7; // emiting variation
       PartSys->sources[0].source.x =  PartSys->maxX >> 1; // set emitter to center
       PartSys->sources[0].source.y =  PartSys->maxY >> 1;
@@ -9045,7 +9045,7 @@ uint16_t mode_particlegalaxy(void) {
         PartSys->particles[i].sat = distance << 1; // turn white towards center
       }
     }
-    if(SEGMENT.custom3 == 31) // color by age but mapped to 1024 as particles have a long life, since age is random, this gives more or less random colors
+    if(SEGMENT.custom3 == 31) // color by age but mapped to 1024 as particles have a long life, since age is random, this gives more or less random colors but
       PartSys->particles[i].hue = PartSys->particles[i].ttl >> 2;
     else if(SEGMENT.custom3 == 0) // color by distance
       PartSys->particles[i].hue = map(distance, 20, (PartSys->maxX + PartSys->maxY) >> 2, 0, 180); // color by distance to center
