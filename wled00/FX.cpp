@@ -9004,30 +9004,34 @@ uint16_t mode_particlegalaxy(void) {
     PartSys->particleMoveUpdate(PartSys->sources[0].source, PartSys->sources[0].sourceFlags, &sourcesettings);
 
   // move alive particles in a spiral motion (or almost straight in fast starfield mode)
+  int32_t centerx = PartSys->maxX >> 1; // center of matrix in subpixel coordinates
+  int32_t centery = PartSys->maxY >> 1;
+  if (SEGMENT.check2) { // starfield mode
+    PartSys->setKillOutOfBounds(true);
+    PartSys->sources[0].var = 7; // emiting variation
+    PartSys->sources[0].source.x =  centerx; // set emitter to center
+    PartSys->sources[0].source.y =  centery;
+  }
+  else {
+    PartSys->setKillOutOfBounds(false);
+    PartSys->sources[0].var = 1; // emiting variation
+  }
   for (uint32_t i = 0; i < PartSys->usedParticles; i++) { //check all particles
     if (PartSys->particles[i].ttl == 0) continue; //skip dead particles
-
-    int32_t centerx = PartSys->maxX >> 1; // center of matrix in subpixel coordinates
-    int32_t centery = PartSys->maxY >> 1;
     // (dx/dy): vector pointing from particle to center
-		int32_t dx = centerx - PartSys->particles[i].x;
-		int32_t dy = centery - PartSys->particles[i].y;
+    int32_t dx = centerx - PartSys->particles[i].x;
+    int32_t dy = centery - PartSys->particles[i].y;
     //speed towards center:
-		int32_t distance = sqrt32_bw(dx * dx + dy * dy); // absolute distance to center
+    int32_t distance = sqrt32_bw(dx * dx + dy * dy); // absolute distance to center
     if (distance < 20) distance = 20; // avoid division by zero, keep a minimum
-		int32_t speedfactor;
+    int32_t speedfactor;
     if (SEGMENT.check2) { // starfield mode
-      PartSys->setKillOutOfBounds(true);
-      PartSys->sources[0].var = 7; // emiting variation
-      PartSys->sources[0].source.x =  PartSys->maxX >> 1; // set emitter to center
-      PartSys->sources[0].source.y =  PartSys->maxY >> 1;
       speedfactor = 1 + (1 + (SEGMENT.speed >> 1)) * distance; // speed increases towards edge
+      //apply velocity
       PartSys->particles[i].x += (-speedfactor * dx) / 400000 - (dy >> 6);
       PartSys->particles[i].y += (-speedfactor * dy) / 400000 + (dx >> 6);
     }
     else {
-      PartSys->setKillOutOfBounds(false);
-      PartSys->sources[0].var = 1; // emiting variation
       speedfactor = 2 + (((50 + SEGMENT.speed) << 6) / distance); // speed increases towards center
       // rotate clockwise
       int32_t tempVx = (-speedfactor * dy); // speed is orthogonal to center vector
